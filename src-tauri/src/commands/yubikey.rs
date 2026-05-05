@@ -3,7 +3,7 @@ use std::path::Path;
 use tauri::State;
 use chrono::{NaiveDate, TimeZone, Utc};
 use wecanencrypt::{
-    parse_cert_bytes, KeyType,
+    parse_key_bytes, KeyType,
     card::{
         is_card_connected, reset_card, upload_primary_key_to_card, upload_key_to_card,
         change_user_pin, change_admin_pin,
@@ -47,7 +47,7 @@ pub async fn upload_to_yubikey(state: State<'_, AppState>) -> Result<(), String>
         .map_err(|e| format!("Failed to reset Yubikey: {}", e))?;
 
     // Parse the certificate to find subkeys
-    let cert_info = parse_cert_bytes(&secret_key, true)
+    let cert_info = parse_key_bytes(&secret_key, true)
         .map_err(|e| format!("Failed to parse certificate: {}", e))?;
 
     // Upload primary key to Signing slot (it has signing capability)
@@ -57,6 +57,7 @@ pub async fn upload_to_yubikey(state: State<'_, AppState>) -> Result<(), String>
         password.as_bytes(),
         CardKeySlot::Signing,
         DEFAULT_ADMIN_PIN,
+        None,
     ).map_err(|e| format!("Failed to upload primary key: {}", e))?;
 
     // Verify encryption subkey exists
@@ -71,6 +72,7 @@ pub async fn upload_to_yubikey(state: State<'_, AppState>) -> Result<(), String>
         password.as_bytes(),
         CardKeySlot::Decryption,
         DEFAULT_ADMIN_PIN,
+        None,
     ).map_err(|e| format!("Failed to upload encryption subkey: {}", e))?;
 
     // Upload authentication subkey to Authentication slot
@@ -86,6 +88,7 @@ pub async fn upload_to_yubikey(state: State<'_, AppState>) -> Result<(), String>
         &auth_subkey.fingerprint,
         CardKeySlot::Authentication,
         DEFAULT_ADMIN_PIN,
+        None,
     ).map_err(|e| format!("Failed to upload authentication subkey: {}", e))?;
 
     // Set touch modes for each key slot
@@ -160,7 +163,7 @@ pub async fn update_key_expiry(
     let expiry_time = (datetime.timestamp() as u64).saturating_sub(now);
 
     // Get all subkey fingerprints for updating
-    let cert_info = parse_cert_bytes(&cert_data, true)
+    let cert_info = parse_key_bytes(&cert_data, true)
         .map_err(|e| format!("Failed to parse certificate: {}", e))?;
 
     let subkey_fps: Vec<String> = cert_info.subkeys
@@ -175,6 +178,7 @@ pub async fn update_key_expiry(
         &cert_data,
         expiry_time,
         pin.as_bytes(),
+        None,
     ).map_err(|e| format!("Failed to update primary key expiry: {}", e))?;
 
     // Update subkeys expiry on card
@@ -184,6 +188,7 @@ pub async fn update_key_expiry(
         &subkey_fp_refs,
         expiry_time,
         pin.as_bytes(),
+        None,
     ).map_err(|e| format!("Failed to update subkeys expiry: {}", e))?;
 
     // Save the updated public key (already armored from update_subkeys_expiry_on_card)

@@ -1,12 +1,18 @@
 <script setup>
 import { useRouter } from 'vue-router'
+import { useAppStore } from '../stores/appStore'
 import TButton from '../components/TButton.vue'
 import successIcon from '../assets/icons/upload_success.svg'
 
 const router = useRouter()
+const store = useAppStore()
 
 function goNext() {
-  router.push('/save-public')
+  if (store.isBackupMode) {
+    router.push('/pins/user')
+  } else {
+    router.push('/save-public')
+  }
 }
 </script>
 
